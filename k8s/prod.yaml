@@ -1,0 +1,193 @@
+kind: ConfigMap
+apiVersion: v1
+data:
+  config.php: |-
+    <?php 
+    return [
+        'components' => [
+            'db' => [
+                'class' => 'etc\components\Pgsql',
+                'dsn' => 'pgsql:host=51.15.53.237;port=5432;dbname=heap',
+                'username' => 'heap_user',
+                'password' => 'heap_password',
+                'charset' => 'utf8',
+            ],
+            'poop' => [
+                'class' => 'etc\components\Shit',
+            ],
+            'auth' => [
+                'class' => 'etc\components\AuthManager',
+                'login_page' => '/login',
+                'default_role' => 'guest',
+            ],
+            'mailer' => [
+                'class' => 'etc\components\SwiftMailer',
+                'smtp' => 'smtp.mailtrap.io',
+                'login' => '70f1853141a5ea',
+                'password' => '2981a5c1d89c01',
+                'port' => 587,
+                'encryption' => 'tls',
+            ],
+            'urlManager' => [
+                'base_url' => 'http://cab.fsin.online',
+                'class' => 'etc\components\UrlManager',
+            ]
+        ],
+        'default_site_email' => 'ya.tonikpro@yandex.ru',
+    ];
+  cab.conf: |-
+    server {
+        charset utf-8;
+        client_max_body_size 128M;
+
+        listen 80; ## listen for ipv4
+
+        # server_name cab.fsin.online;
+        root        /var/www/html/app/web/;
+        index       index.php;
+
+        # access_log  /var/www/html/app/log/access.log;
+        # error_log   /var/www/html/app/log/error.log;
+
+        location / {
+            # Redirect everything that isn't a real file to index.php
+            try_files $uri $uri/ /index.php$is_args$args;
+        }
+
+        # uncomment to avoid processing of calls to non-existing static files by Yii
+        location ~ \.(js|css|png|jpg|gif|swf|ico|svg|woff|woff2|ttf)$ {
+                root /var/www/html/cab/assets/;
+                try_files $uri =404;
+        }
+        #error_page 404 /404.html;
+        #location ~ \.(mp3|mp4) {
+        #       root /var/www/html/cab4/assets;
+        #}
+        # deny accessing php files for the /assets directory
+        location ~ ^/assets/.*\.php$ {
+            deny all;
+        }
+
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_pass 127.0.0.1:9000;
+            try_files $uri =404;
+        }
+
+        location ~* /\. {
+            deny all;
+        }
+    }
+  custom.ini: |- 
+    session.save_handler = redis
+    session.save_path = "tcp://php-cab-redis:6379"
+metadata:
+  name: cab-config
+  labels:
+    addonmanager.kubernetes.io/mode: Reconcile
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "php-cab"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php-cab
+  template:
+    metadata:
+      labels:
+        app: php-cab
+        name: "php-cab"
+        version: {TAG}
+        build: "{BUILD}"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - php-cab
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: nginx
+          image: "nginx:latest"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: nginxconf
+            mountPath: /etc/nginx/sites-enabled/cab.conf
+            subPath: cab.conf
+          - name: shared-files
+            mountPath: /var/www/html
+        - name: php-cab
+          image: "git.fsin.online:4567/fsin/php-cab:{TAG}"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          volumeMounts:
+          - name: phpini
+            mountPath: /usr/local/etc/php/conf.d/custom.ini
+            subPath: custom.ini
+          - name: configphp
+            mountPath: /var/www/html/app/config/main.php
+            subPath: main.php
+          - name: shared-files
+            mountPath: /var/www/html
+          env:
+            - name: MY_HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      imagePullSecrets:
+        - name: docker-repo-secret
+      volumes:
+      - name: nginxconf
+        configMap:
+          name: cab-config
+          items:
+          - key: cab.conf
+            path: cab.conf
+      - name: phpini
+        configMap:
+          name: cab-config
+          items:
+          - key: custom.ini
+            path: custom.ini
+      - name: configphp
+        configMap:
+          name: cab-config
+          items:
+          - key: config.php
+            path: main.php
+      - name: shared-files
+        emptyDir: {}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: "php-cab"
+spec:
+  selector:
+    app: "php-cab"
+  ports:
+    - port: 80
+      targetPort: 80

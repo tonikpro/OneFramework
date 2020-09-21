@@ -1,0 +1,6 @@
+{
+    "require": {
+        "robmorgan/phinx": "^0.12.3",
+        "swiftmailer/swiftmailer": "^6.0"
+    }
+}
