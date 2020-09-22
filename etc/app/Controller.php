@@ -24,7 +24,7 @@ class Controller
     
     protected function render($view, $args = [])
     {
-        echo App::i()->poop->render(__DIR__ . '/../../view/', $view, $args);
+        echo App::i()->ui->render(__DIR__ . '/../../view/', $view, $args);
     }
 
     protected function csrf($name)

@@ -34,7 +34,7 @@ class SwiftMailer
 
     public function compose($view, $args = [])
     {
-        $body = App::i()->poop->render($this->templatePath, $view, $args);
+        $body = App::i()->ui->render($this->templatePath, $view, $args);
         $message = new \Swift_Message();
         $message->setBody($body, 'text/html');
         return $message;

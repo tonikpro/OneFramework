@@ -10,7 +10,7 @@ class Shit
     {
         $view = rtrim($root, '/') . '/' . $view . '.php';
         if(!file_exists($view)){
-            throw new \Exception(printf('View <b>%s</b> not found', $view));
+            throw new \Exception(sprintf('View <b>%s</b> not found', $view));
         }
         if(is_array($args)){
             foreach($args as $key => $value)

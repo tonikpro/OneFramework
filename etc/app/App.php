@@ -26,7 +26,7 @@ class App
             {
                 if(array_key_exists('class', $component)){
                     if(!class_exists($component['class'])){
-                        throw new \Exception(printf('Component <b>%s</b> not found', $component['class']));
+                        throw new \Exception(sprintf('Component <b>%s</b> not found', $component['class']));
                     }
                     $this->components[$key] = new $component['class']($component);
                 }
@@ -57,9 +57,8 @@ class App
 
     public function Run()
     {
-        // echo "<pre>";
-        // print_r($_SERVER);
-        
+        @set_exception_handler([$this, 'error_hundler']);
+        $this->load();
         $path = $_SERVER['REQUEST_URI'];
         if($_SERVER['QUERY_STRING'] != ""){
             $path = substr($path, 0, strpos($path, "?"));
@@ -84,18 +83,25 @@ class App
         $params = array_merge($params, $output);
             
         $controller = '\\controller\\' . $controller;
-        // var_dump($controller);
-        // var_dump($action);exit;
         if(!class_exists($controller) || !array_key_exists('etc\app\Controller', class_parents($controller))) {
             return $this->response(404, "Not Found");
         }
-        $this->load();
+        
         
         $c = new $controller();
         if(!method_exists($c, $action)){
             return $this->response(404, "Not Found");
         }
         return $c->$action($params);
+    }
+
+    public function error_hundler($e)
+    {
+        if($this->config('debug')){
+            $view_path = __DIR__ . '/../../view/error.php';
+            require $view_path;
+        }
+        error_log($e);
     }
 
     private function prepareObjectName($name)

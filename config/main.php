@@ -1,14 +1,14 @@
 <?php 
 return [
     'components' => [
-        'db' => [
-            'class' => 'etc\components\Pgsql',
-            'dsn' => '',
-            'username' => '',
-            'password' => '',
-            'charset' => 'utf8',
-        ],
-        'poop' => [
+        // 'db' => [
+        //     'class' => 'etc\components\Pgsql',
+        //     'dsn' => '',
+        //     'username' => '',
+        //     'password' => '',
+        //     'charset' => 'utf8',
+        // ],
+        'ui' => [
             'class' => 'etc\components\Shit',
         ],
         'auth' => [
@@ -29,4 +29,5 @@ return [
             'class' => 'etc\components\UrlManager',
         ]
     ],
+    'debug' => true,
 ];
